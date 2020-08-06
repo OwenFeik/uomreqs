@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import json
 import re
 
@@ -8,7 +9,7 @@ import requests
 URL_BASE = 'https://handbook.unimelb.edu.au'
 INHERENT = [line.replace('\n', '') for line in open('inherent.txt', 'r')]
 
-async def get(url):
+def get(url):
     return requests.get(url).content.decode()
 
 def parse_subject_table(table):
@@ -58,16 +59,16 @@ def parse_requisites_element(children):
         info['inherent'] = [i for i in info['inherent'] if i not in INHERENT]
     return info
 
-async def get_requirements_href(href):
+def get_requirements_href(href):
     if 'eligibility-and-requirements' in href:
         return href
     
-    soup = bs4.BeautifulSoup(await get(URL_BASE + href), features='lxml')
+    soup = bs4.BeautifulSoup(get(URL_BASE + href), features='lxml')
     return soup.find(name='a', text='Eligibility and requirements')['href']
 
-async def get_subject_requirements(href):
-    href = await get_requirements_href(href)
-    soup = bs4.BeautifulSoup(await get(URL_BASE + href), features='lxml')
+def get_subject_requirements(href):
+    href = get_requirements_href(href)
+    soup = bs4.BeautifulSoup(get(URL_BASE + href), features='lxml')
 
     body = soup.select('.course__body__inner > .sidebar-tabs__panel')[0]
 
@@ -81,16 +82,16 @@ async def get_subject_requirements(href):
     
     return info
 
-async def get_n_pages():
+def get_n_pages():
     return 5
 
     search_url = URL_BASE + '/search?types[]=subject'
-    soup = bs4.BeautifulSoup(await get(search_url), features='lxml')
+    soup = bs4.BeautifulSoup(get(search_url), features='lxml')
     div = soup.select('.search-results__paginate')[0] 
     return int(div.select('span')[0].string[3:]) # '<span>of 313</span>'
 
-async def parse_search_result_page(url):
-    soup = bs4.BeautifulSoup(await get(url), features='lxml')
+def parse_search_result_page(url):
+    soup = bs4.BeautifulSoup(get(url), features='lxml')
     subject_divs = soup.select('.search-result-item__anchor')
     subjects = []
     for div in subject_divs:
@@ -116,30 +117,36 @@ async def parse_search_result_page(url):
 
     return subjects
 
-async def add_requirement_info(subject):
-    subject.update(await get_subject_requirements(subject['href']))
-    print(subject)
+def add_requirement_info(subject):
+    subject.update(get_subject_requirements(subject['href']))
+    print(subject['code'])
     return subject
 
 async def get_page_of_subjects(n):
-    subjects = await parse_search_result_page(
+    subjects = parse_search_result_page(
         URL_BASE + '/search?types[]=subject&page=' + str(n))
 
-    tasks = [asyncio.create_task(add_requirement_info(subject)) \
-        for subject in subjects]
-        
-    return await asyncio.gather(*tasks)
+    loop = asyncio.get_event_loop()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        futures = [loop.run_in_executor(executor, add_requirement_info, s) \
+            for s in subjects]
+        return await asyncio.gather(*futures)
 
 # Will take a while; there are 6000+ subjects, across 300+ pages.
 async def get_all_subjects():
-    n = await get_n_pages()
+    n = get_n_pages()
 
     tasks = [asyncio.create_task(get_page_of_subjects(i + 1)) \
         for i in range(n)]
 
     return await asyncio.gather(*tasks)
 
-loop = asyncio.get_event_loop()
-subjects = loop.run_until_complete(get_all_subjects())
-with open('out.json', 'w') as f:
-    json.dump(subjects, f, indent=4)
+def main():
+    loop = asyncio.get_event_loop()
+    subjects = loop.run_until_complete(get_all_subjects())
+    with open('out.json', 'w') as f:
+        json.dump(subjects, f, indent=4)
+
+if __name__ == '__main__':
+    main()
