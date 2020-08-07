@@ -12,6 +12,9 @@ INHERENT = [line.replace('\n', '') for line in open('inherent.txt', 'r')]
 def get(url):
     return requests.get(url).content.decode()
 
+def element_text(el):
+    return re.sub(r'<[^<>]*>', '', str(el)).strip()
+
 def parse_subject_table(table):
     # columns = []
     # for th in table.select('thead')[0].select('th'):
@@ -25,6 +28,13 @@ def parse_subject_table(table):
         subjects.append(code)
 
     return subjects
+
+def parse_list(ul):
+    entries = []
+    for li in ul.select('li'):
+        entries.append(element_text(li))
+
+    return entries
 
 def parse_requisites_element(children):
     aliases = {
@@ -45,14 +55,18 @@ def parse_requisites_element(children):
                 info[alias(heading)] = content
             heading = child.string
             content = []
-        elif child.name == 'p':
-            text = re.sub(r'<[^<>]*>', '', str(child)).strip()
-            if text:
-                content.append(text)
         elif child.name == 'table':
             content.append(parse_subject_table(child))
+        elif child.name == 'ul':
+            content.append(parse_list(child))
         elif child.name == 'div':
             break
+        elif child.name == 'h2':
+            pass
+        else:
+            text = element_text(child)
+            if text:
+                content.append(text)
     info[alias(heading)] = content
 
     if 'inherent' in info:
