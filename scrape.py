@@ -76,6 +76,22 @@ def parse_requisites_element(children):
     return info
 
 def parse_prereq_info(info):
+    requisites = []
+    qty = 0
+    conc = False
+    for item in info:
+        if type(item) == list:
+            requisites.append(qty, item, conc)
+        elif type(item) != str:
+            print('WTF' + item)
+        else:
+            string = item.lower()
+            if 'one of' in string:
+                qty = 1
+            elif 'cannot enrol' in string:
+                qty = -1
+            elif 'credit will not be given' in string:
+                qty = -1 
     pass
     # at least n points in <subject area>
     # one of [list]
@@ -144,8 +160,6 @@ def get_subject_requirements(href):
     return info
 
 def get_n_pages():
-    return 20
-
     search_url = URL_BASE + '/search?types[]=subject'
     soup = bs4.BeautifulSoup(get(search_url), features='lxml')
     div = soup.select('.search-results__paginate')[0] 
@@ -179,13 +193,20 @@ def parse_search_result_page(url):
     return subjects
 
 def add_requirement_info(subject):
-    subject.update(get_subject_requirements(subject['href']))
-    print(subject['code'])
+    try:
+        subject.update(get_subject_requirements(subject['href']))
+        print(subject['code'])
+    except Exception as e:
+        print(f'Failed to get info for subject {subject}: {e}')
     return subject
 
 async def get_page_of_subjects(n):
-    subjects = parse_search_result_page(
-        URL_BASE + '/search?types[]=subject&page=' + str(n))
+    try:
+        subjects = parse_search_result_page(
+            URL_BASE + '/search?types[]=subject&page=' + str(n))
+    except Exception as e:
+        print(f'Failed to get page {n} of subjects: {e}')
+        return []
 
     loop = asyncio.get_event_loop()
 
