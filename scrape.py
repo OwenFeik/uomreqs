@@ -9,7 +9,6 @@ import requests
 
 URL_BASE = 'https://handbook.unimelb.edu.au'
 INHERENT = [line.replace('\n', '') for line in open('inherent.txt', 'r')]
-SUBJ_RGX = r'[a-zA-Z]{4}\d{5}'
 
 def get(url):
     return requests.get(url).content.decode()
@@ -74,67 +73,6 @@ def parse_requisites_element(children):
     if 'inherent' in info:
         info['inherent'] = [i for i in info['inherent'] if i not in INHERENT]
     return info
-
-def parse_prereq_info(info):
-    requisites = []
-    qty = 0
-    conc = False
-    for item in info:
-        if type(item) == list:
-            requisites.append(qty, item, conc)
-        elif type(item) != str:
-            print('WTF' + item)
-        else:
-            string = item.lower()
-            if 'one of' in string:
-                qty = 1
-            elif 'cannot enrol' in string:
-                qty = -1
-            elif 'credit will not be given' in string:
-                qty = -1 
-    pass
-    # at least n points in <subject area>
-    # one of [list]
-    # AND
-    # Qualification (or equiv)
-    # OR
-    # ONE OF
-    # OR admission into one of the following courses
-    # Entry to <course>
-    # One of the following
-    # This subject is only available to students admitted to <courses>
-    # This subject is not available to students enrolled in <course>
-    # Students can gain credit for only one of: <subj> or <subj>
-    # Successful completion of all the belo subjects
-    # And one of
-    # Students cannot enrol in this subject if they have previously... <list>
-    # Admission into <course> PLUS completion of any two of <list>
-    # Permission can be sought form the <course> coordinator.
-    # Admission to <course list> Or and undergraduate degree + experience
-    # "1." <list> (may be taken concurrently)
-    # And 2. <list>
-    # Or both of <list>
-    # <subj> has significant overlap with this subject
-    # the core subject <subj name> must be taken as a prerequisite
-    # Completion of equivalent of 100 points of study at an undergraduate level
-    # Only approved applicants can enrol into this subject
-    # Admission to a Masters level program
-    # (can te taken concurrently)
-    # <list> or admission into <course>
-    # may take <subj> concurrently but must submit an EV form
-    # ALL of the following subjects, may be taken concurrently
-    # (Prerequisite cannot be taken concurrently) <list>
-    # Credit ill not be given for this subject and the following subjects
-    # require knowledge in one of <butchered list> plus one of <butchered list>
-
-
-    # (qty, subjects, concurrent)
-    # qty of 0 -> all subjects required
-    # qty of -1 -> disallowed subjects
-    # e.g. (0, [comp10002], False) implies that comp10002 is a requirement
-    # e.g. (2, [comp10002, comp20005], False) implies that both subj required
-    # e.g. (1, [MAST10005, MAST10006], True) implies that either subj must be
-    #    done before or simultaneously.
 
 def get_requirements_href(href):
     if 'eligibility-and-requirements' in href:
