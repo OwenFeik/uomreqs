@@ -42,6 +42,7 @@ def parse_requisites_element(children):
         'Prerequisites': 'prereqs',
         'Corequisites': 'coreqs',
         'Non-allowed subjects': 'antireqs',
+        'Additional Entry Requirements': 'addreqs',
         'Inherent requirements (core participation requirements)': 'inherent',
         'Recommended background knowledge': 'background'
     }

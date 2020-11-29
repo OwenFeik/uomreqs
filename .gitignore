@@ -1,2 +1,3 @@
 *.json
 __*
+node_modules
