@@ -1,3 +1,4 @@
+import json
 import re
 
 RE_ANY = r'[ \w\-():;,]+'
@@ -234,3 +235,25 @@ def parse_prereq_info(subj):
     # ('COURSE', course) -> must be in course (may be a list)
     # ('FIELD', n, year, fields) -> must have taken n yearth subjects in fields
     # ('ADDITIONAL', reqstr) -> an additional request (e.g. audition, etc)
+
+def clean_scraped(file='out.json'):
+    with open(file, 'r') as f:
+        subjs = json.load(f)
+
+    for s in subjs:
+        s['level'], s['points'] = \
+            s['level'].replace('credit points', '').strip().split(', ')
+        s['constraints'] = parse_prereq_info(s)
+        for entry in ['prereqs', 'coreqs', 'addreqs', 'antireqs']:
+            if entry in s:
+                del s[entry]
+    
+    with open('cleaned.json', 'w') as f:
+        json.dump(subjs, f, indent=4)
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) > 1:
+        clean_scraped(file=sys.argv[1])
+    else:
+        clean_scraped()
