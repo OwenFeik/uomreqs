@@ -9,6 +9,7 @@ import requests
 
 URL_BASE = 'https://handbook.unimelb.edu.au'
 INHERENT = [line.replace('\n', '') for line in open('inherent.txt', 'r')]
+LOGGING = True
 
 def get(url):
     return requests.get(url).content.decode()
@@ -134,9 +135,12 @@ def parse_search_result_page(url):
 def add_requirement_info(subject):
     try:
         subject.update(get_subject_requirements(subject['href']))
-        print(subject['code'])
+        if LOGGING:
+            print(subject['code'])
     except Exception as e:
-        print(f'Failed to get info for subject {subject}: {e}')
+        if LOGGING:
+            print('Failed to get info for subject ' + subject['code'] + \
+                f': {e}')
     return subject
 
 async def get_page_of_subjects(n):
@@ -144,7 +148,8 @@ async def get_page_of_subjects(n):
         subjects = parse_search_result_page(
             URL_BASE + '/search?types[]=subject&page=' + str(n))
     except Exception as e:
-        print(f'Failed to get page {n} of subjects: {e}')
+        if LOGGING:
+            print(f'Failed to get page {n} of subjects: {e}')
         return []
 
     loop = asyncio.get_event_loop()
@@ -163,6 +168,10 @@ async def get_all_subjects():
 
     subjects = []
     _ = [subjects.extend(s) for s in await asyncio.gather(*tasks)]
+
+    with open('subjects.json', 'w') as f:
+        json.dump([s['code'] for s in subjects], f, indent=4)
+
     return subjects
 
 def main():
@@ -171,8 +180,9 @@ def main():
     subjects = loop.run_until_complete(get_all_subjects())
     with open('out.json', 'w') as f:
         json.dump(subjects, f, indent=4)
-    print(f'Downloaded requisite information for {len(subjects)} ' + \
-        f'subjects in {time.time() - start} seconds.')
+    if LOGGING:
+        print(f'Downloaded requisite information for {len(subjects)} '
+            f'subjects in {time.time() - start} seconds.')
 
 if __name__ == '__main__':
     main()

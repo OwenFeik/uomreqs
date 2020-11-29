@@ -236,10 +236,21 @@ def parse_prereq_info(subj):
     # ('FIELD', n, year, fields) -> must have taken n yearth subjects in fields
     # ('ADDITIONAL', reqstr) -> an additional request (e.g. audition, etc)
 
+def clean_duplicates(subjs):
+    new = []
+    codes = []
+    for s in subjs:
+        if s['code'] not in codes:
+            new.append(s)
+            codes.append(s['code'])
+    
+    return codes
+
 def clean_scraped(file='out.json'):
     with open(file, 'r') as f:
         subjs = json.load(f)
 
+    subjs = clean_duplicates(subjs)
     for s in subjs:
         s['level'], s['points'] = \
             s['level'].replace('credit points', '').strip().split(', ')
