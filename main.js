@@ -70,57 +70,90 @@ function display_graph(graph, width=800, height=600) {
     }
 }
 
-function build_graph(json) {
-    let index_mapping = {}
-
+function nodes_to_d3_graph(nodes) {
     let graph = {
-        nodes: [],
+        nodes: nodes.list,
         links: []
+    };
+
+    nodes.list.forEach(n => {
+        n.neighbours.forEach(o => {
+            graph.links.push({
+                source: nodes.list.indexOf(n),
+                target: nodes.list.indexOf(o) 
+            })
+        });
+    });
+
+    return graph;
+}
+
+function accessible_from(nodes, root='MAST20009') {
+    let root_node = nodes.get(root);    
+    root_node.visited = true;
+    let next = [root_node];
+    let cur;
+    while (next.length) {
+        cur = next;
+        next = [];
+
+        cur.forEach(n => {
+            n.neighbours.forEach(o => {
+                if (!o.visited) {
+                    next.push(o);
+                }
+                o.visited = true;
+            });
+        });
     }
 
-    function add_node(code) {
-        let node = { name: code };
-        index_mapping[node.name] = graph.nodes.push(node) - 1;
+    let to_remove = [];
+    nodes.list.forEach(n => {
+        if (!n.visited) {
+            to_remove.push(n);
+        }
+        delete n.visited;
+    });
+
+    to_remove.forEach(n => {
+        nodes.list.splice(nodes.list.indexOf(n), 1);
+        delete nodes[n.name];
+    })
+
+    return nodes;
+}
+
+function build_nodes(json) {
+    let nodes = {list: []};
+    nodes.get = (n) => {
+        if (n in nodes) {
+            return nodes[n];
+        }
+
+        let node = {neighbours: [], name: n};
+
+        nodes[n] = node;
+        nodes.list.push(node);
         return node;
-    }
+    };
 
-    let links = [];
     json.forEach(s => {
-        let node = add_node(s.code);
         s.constraints.forEach(c => {
+            let node = nodes.get(s.code);
             if (c[0] === "SUBJECTS") {
                 let [_, qty, opts, conc] = c;
                 opts.forEach(o => {
-                    links.push([node.name, o]);
+                    node.neighbours.push(nodes.get(o));
                 });
             }
         });
     });
 
-    function get_index(s) {
-        let i = index_mapping[s];
-        if (i !== undefined) {
-            return i;
-        }
-    
-        add_node(s);
-        return get_index(s);
-    }
-
-    links.forEach(l => {
-        let [start, end] = l;
-
-        graph.links.push({
-            source: get_index(start),
-            target: get_index(end) 
-        });
-    })
-
-    return graph;
+    return nodes;
 }
 
 function load_graph_from_json(file="mast.json") {
     fetch(file)
         .then(resp => resp.json())
-        .then(data => display_graph(build_graph(data)));
+        .then(data => display_graph(nodes_to_d3_graph(accessible_from(build_nodes(data)))));
 }
