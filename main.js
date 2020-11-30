@@ -8,10 +8,28 @@ function display_graph(graph, width=800, height=600) {
     let svg = d3.select("body").append("svg")
         .attr("viewBox", [0, 0, width, height]);
     
+    let defs = svg.append('defs');
+    
+    defs.append('marker')
+        .attrs({
+            'id': 'arrowhead',
+            'viewBox': '-0 -5 10 10',
+            'refX': 22,
+            'refY': 0,
+            'orient': 'auto',
+            'markerWidth': 5,
+            'markerHeight': 5
+        })
+        .append('svg:path')
+        .attr('d', 'M 0, -5 L 10, 0 L 0, 5')
+        .attr('fill', '#999')
+        .style('stroke', 'none');
+
     let link = svg.selectAll(".link")
         .data(graph.links)
         .join("line")
-        .classed("link", true);
+        .classed("link", true)
+        .attr('marker-end', 'url(#arrowhead)');
     
     let node = svg.selectAll(".node")
         .data(graph.nodes)
@@ -30,7 +48,7 @@ function display_graph(graph, width=800, height=600) {
     let simulation = d3
         .forceSimulation()
         .nodes(graph.nodes)
-        .force("charge", d3.forceManyBody().strength(-100))
+        .force("charge", d3.forceManyBody().strength(-60))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .force("link", d3.forceLink(graph.links))
         .on("tick", tick);
@@ -88,8 +106,24 @@ function nodes_to_d3_graph(nodes) {
     return graph;
 }
 
-function accessible_from(nodes, root='MAST20009') {
-    let root_node = nodes.get(root);    
+function scrub_unvisited(nodes) {
+    let to_remove = [];
+    nodes.list.forEach(n => {
+        if (!n.visited) {
+            to_remove.push(n);
+        }
+        delete n.visited;
+    });
+
+    to_remove.forEach(n => {
+        nodes.list.splice(nodes.list.indexOf(n), 1);
+        delete nodes[n.name];
+    });
+
+    return nodes;
+}
+
+function accessible_from(nodes, root_node) {
     root_node.visited = true;
     let next = [root_node];
     let cur;
@@ -107,18 +141,47 @@ function accessible_from(nodes, root='MAST20009') {
         });
     }
 
-    let to_remove = [];
-    nodes.list.forEach(n => {
-        if (!n.visited) {
-            to_remove.push(n);
-        }
-        delete n.visited;
-    });
+    return scrub_unvisited(nodes);
+}
 
-    to_remove.forEach(n => {
-        nodes.list.splice(nodes.list.indexOf(n), 1);
-        delete nodes[n.name];
-    })
+function build_tree(nodes, root = 'MAST30028') {
+    let ensure_children = p => {
+        if (p.children === undefined) {
+            p.children = [];
+        }
+    }
+
+    let add_child = (p, c) => {
+        ensure_children(p);
+        p.children.push(c);
+    }
+
+    root = nodes.get(root);
+    root.visited = true;
+
+    let next = [ root ];
+    let cur;
+    while (next.length) {
+        cur = next;
+        next = [];
+        cur.forEach(n => {
+            n.neighbours.forEach(o => {
+                if (!o.visited) {
+                    o.visited = true;
+                    next.push(o);
+                    add_child(n, o); 
+                }
+            })
+        });
+    }
+
+    scrub_unvisited(nodes);
+
+    nodes.list.forEach(n => {
+        ensure_children(n);
+        n.neighbours = n.children;
+        delete n.children;
+    });
 
     return nodes;
 }
@@ -142,9 +205,11 @@ function build_nodes(json) {
             let node = nodes.get(s.code);
             if (c[0] === "SUBJECTS") {
                 let [_, qty, opts, conc] = c;
-                opts.forEach(o => {
-                    node.neighbours.push(nodes.get(o));
-                });
+                if (qty >= 0) {
+                    opts.forEach(o => {
+                        node.neighbours.push(nodes.get(o));
+                    });    
+                }
             }
         });
     });
@@ -155,5 +220,5 @@ function build_nodes(json) {
 function load_graph_from_json(file="mast.json") {
     fetch(file)
         .then(resp => resp.json())
-        .then(data => display_graph(nodes_to_d3_graph(accessible_from(build_nodes(data)))));
+        .then(data => display_graph(nodes_to_d3_graph(build_tree(build_nodes(data)))));
 }

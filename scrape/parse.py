@@ -244,11 +244,14 @@ def clean_duplicates(subjs):
             new.append(s)
             codes.append(s['code'])
     
-    return codes
+    return new
 
-def clean_scraped(file='out.json'):
+def clean_scraped(file='out.json', prefix=None):
     with open(file, 'r') as f:
         subjs = json.load(f)
+
+    if prefix is not None:
+        subjs = [s for s in subjs if s['code'].startswith(prefix)]
 
     subjs = clean_duplicates(subjs)
     for s in subjs:
@@ -258,13 +261,17 @@ def clean_scraped(file='out.json'):
         for entry in ['prereqs', 'coreqs', 'addreqs', 'antireqs']:
             if entry in s:
                 del s[entry]
-    
+
     with open('cleaned.json', 'w') as f:
         json.dump(subjs, f, indent=4)
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1:
-        clean_scraped(file=sys.argv[1])
-    else:
+    if len(sys.argv) == 1:
         clean_scraped()
+    if len(sys.argv) == 2:
+        clean_scraped(file=sys.argv[1])
+    elif len(sys.argv) == 3:
+        clean_scraped(file=sys.argv[1], prefix=sys.argv[2].upper())
+    else:
+        print('Usage: parse.py <file?> <prefix?>')
